@@ -1,0 +1,2 @@
+# SwamPy
+Frontend for CrocDB

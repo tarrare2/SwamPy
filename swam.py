@@ -6,6 +6,7 @@ import zipfile
 import shutil
 import psutil
 import base64
+import random
 import ctypes
 from datetime import datetime
 from pathlib import Path
@@ -999,6 +1000,9 @@ class MainWindow(QMainWindow):
                 games_data = content["results"]
             elif isinstance(content, list):
                 games_data = content
+        if not games_data:
+            self._display_no_results()
+            return
         for game_data in games_data:
             if isinstance(game_data, dict):
                 title = game_data.get("title", "Unknown")
@@ -1044,6 +1048,58 @@ class MainWindow(QMainWindow):
         if self.cards:
             self.focused_index = 0
             self.cards[0].setFocus()
+
+    def _display_no_results(self):
+        """Display no results message with random animated WebP"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setAlignment(Qt.AlignCenter)
+        webp_files = ["aglia.webp", "bonk.webp", "pesce.webp"]
+        selected_webp = random.choice(webp_files)
+        webp_path = Path.cwd() / selected_webp
+        if webp_path.exists():
+            webp_label = QLabel()
+            movie = QMovie(str(webp_path))
+            webp_label.setMovie(movie)
+            movie.start()
+            webp_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(webp_label)
+        else:# Fallback: use cancel icon as placeholder
+            fallback_label = QLabel()
+            pixmap = QPixmap()
+            pixmap.loadFromData(base64.b64decode(CANCEL_B64))
+            scaled_pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            fallback_label.setPixmap(scaled_pixmap)
+            fallback_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(fallback_label)
+        message_label = QLabel("No results found")
+        message_label.setStyleSheet("""
+            QLabel {
+                font-size: 24px;
+                font-weight: bold;
+                color: #888;
+                padding: 20px;
+            }
+        """)
+        message_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message_label)
+        suggestion_label = QLabel("Try a different search term or adjust your filters")
+        suggestion_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                color: #666;
+            }
+        """)
+        suggestion_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(suggestion_label)
+        self.grid_layout.addWidget(container, 0, 0, 1, 1, Qt.AlignCenter)
+        self.current_games.clear()
+        self.cards.clear()
+        self.total_pages = 1
+        self.current_page = 1
+        self._update_pagination()
+        # Update status bar
+        self.status_bar.showMessage("No games found", 3000)
     
     def _clear_grid(self):
         """Clear all cards from the grid"""
@@ -1257,14 +1313,17 @@ class MainWindow(QMainWindow):
     def _update_pagination(self):
         self.page_combo.blockSignals(True)
         self.page_combo.clear()
-        for i in range(1, self.total_pages + 1):
-            self.page_combo.addItem(f"Page {i}", i)
-        if self.current_page <= self.total_pages:
-            self.page_combo.setCurrentIndex(self.current_page - 1)
+        if self.total_pages > 0:
+            for i in range(1, self.total_pages + 1):
+                self.page_combo.addItem(f"Page {i}", i)
+            if self.current_page <= self.total_pages:
+                self.page_combo.setCurrentIndex(self.current_page - 1)
         self.page_combo.blockSignals(False)
         self.page_label.setText(f"Page {self.current_page} of {self.total_pages}")
-        self.prev_btn.setEnabled(self.current_page > 1)
-        self.next_btn.setEnabled(self.current_page < self.total_pages)
+        has_results = len(self.current_games) > 0
+        self.prev_btn.setEnabled(self.current_page > 1 and has_results)# Disables navigation if no results
+        self.next_btn.setEnabled(self.current_page < self.total_pages and has_results)
+        self.page_combo.setEnabled(has_results and self.total_pages > 1)
     
     def _on_page_change(self, index: int):
         if index >= 0:

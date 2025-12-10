@@ -28,7 +28,7 @@ CANCEL_B64 = "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAAAXNSR0IB2cksfwAAAA
 API_BASE_URL = "https://api.crocdb.net/"
 CONFIG_FILE = Path.cwd() / ".swampy_config.json"
 DEFAULT_SETTINGS = {
-    "download_path": str(Path.home() / "Downloads"),
+    "download_path": str(Path.cwd() / "swamp"),
     "use_es_folders": True,
     "remove_demos": True,
     "cache_size_mb": 50
@@ -697,7 +697,7 @@ class MainWindow(QMainWindow):
     def _create_placeholder(self) -> QPixmap:
         """Create placeholder pixmap"""
         try:
-            pixmap = QPixmap("placeholder.png")
+            pixmap = QPixmap("swamp/placeholder.png")
             if not pixmap.isNull():
                 return pixmap.scaled(180, 180, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         except:
@@ -1056,7 +1056,7 @@ class MainWindow(QMainWindow):
         layout.setAlignment(Qt.AlignCenter)
         webp_files = ["aglia.webp", "bonk.webp", "pesce.webp"]
         selected_webp = random.choice(webp_files)
-        webp_path = Path.cwd() / selected_webp
+        webp_path = Path.cwd() / "swamp" / selected_webp
         if webp_path.exists():
             webp_label = QLabel()
             movie = QMovie(str(webp_path))

@@ -13,3 +13,5 @@ If you think of a good feature to add or get annoyed by a bug or behaviour, feel
 
 Move the focus around with arrow keys, go back and forth through pages with PgUp/Dn.
 Filters demos out by default.
+
+If you want to use pyinstaller on it yourself, I'd recommend using swampy-b64 so you don't need the images.

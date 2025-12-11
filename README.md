@@ -9,7 +9,8 @@ It's not the worst thing ever, provided you don't look at the source code.
 
 If you think of a good feature to add (e.g. bite the bullet and use chdman for converting the 1% of ROMs only available as bin/cue) or get annoyed by a bug or behaviour, feel free to open up an issue.
 
-<img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/cd985785-4feb-4fed-93a5-cff048786cd9" />
+<img width="1366" height="768" alt="Something to note: the second 'nes'/third label is the file format of the download link, not the platform." src="https://github.com/user-attachments/assets/3c317a3c-3f25-45cb-a694-06c11578daea" />
+
 
 Move the focus around with arrow keys, go back and forth through pages with PgUp/Dn.
 Filters demos out and moves extracted multi-disc CHDs to .m3u folders by default.

@@ -30,6 +30,7 @@ Optional: Turn off automatic .m3u folders and folder mapping if you prefer to ha
 If you want to use pyinstaller on it yourself, I'd recommend using the b64 version so you don't need the images.
 
 ### Features to add: 
+* Option to start CrocDB API server locally and use that instead of api.crocdb.net
 * Queue management beyond cancelling and clearing e.g. pause/resume/priority
     * I'm sure there's a way to download faster, not sure exactly how though.
 * Filter by filesize, maximum and minimum

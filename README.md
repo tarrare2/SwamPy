@@ -31,14 +31,22 @@ Optional: Turn off automatic .m3u folders and folder mapping if you prefer to ha
 
 The images are base64 strings. I know it's not a good decision but it's more convenient than having a folder for images.
 
-### Features to add upon request: 
+### Features to add upon request or spontaneous motivation: 
+* PSVita games don't have covers or zRIFs (they were put on crocdb.net), so do the following:
+    1. Add covers to PSV games using my psv-covers repo
+    2. Download nopaystation's TSV, extract zRIFs
+    3. Use zRIF, if present, to decrypt the downloaded PKG files into .zips
+    4. (Optional) Recreate vita3k's install_archive_content function
+    5. If ES-DE folders are being used, create .psvita files in place of the .pkg files for ES-DE to display and run.
 * Queue management beyond cancelling and clearing e.g. pause/resume/priority
     * I'm sure there's a way to download faster, not sure exactly how though.
 * Filter by filesize, maximum and minimum
 * Detect and display missing discs in multi-disc series
 * Detect and display duplicates
-* Export/Import romsets as a list of slug identifiers
-  * Beg crocDB to expose the website's romsets to the API as a TSV or txt.
-  * Alternatively man up and do it myself
 * Make use of the /entry/random endpoint somehow. Probably on startup if the user doesn't have/want missing/duplicate ROMs to be displayed.
+* If using ES-DE: hopefully it's possible to autoscrape metadata for downloaded titles from screenscraper.fr into ES-DE/downloaded_media
+* ~~Export/Import romsets as a list of slug identifiers~~
+  * Beg crocDB to expose the website's romsets to the API as a TSV or txt.
+  * Alternatively man up and do it myself (although compared to a central hub for everyone to use, adding an API endpoint for your text files just isn't the same)
+* ~~Option to run the API server locally~~
 

@@ -387,11 +387,14 @@ class PSVitaSettingsDialog(QDialog):
 
     def get_settings(self):
         selected_statuses = []
+        vita3k_path = self.vita3k_edit.text().strip()
+        if vita3k_path:
+            vita3k_path = str(Path(vita3k_path).resolve()) 
         for i in range(self.compat_list.count()):
             if self.compat_list.item(i).checkState() == Qt.Checked:
                 selected_statuses.append(self.compat_list.item(i).text())
         return {
-            "vita3k_path": self.vita3k_edit.text(),
+            "vita3k_path": vita3k_path,
             "auto_install_vita3k": self.auto_install_cb.isChecked(),
             "decrypt_psv_pkg": self.decrypt_cb.isChecked(),
             "delete_after_vita3k_install": self.delete_cb.isChecked(),
@@ -1153,7 +1156,7 @@ class DownloadManager(QThread):
                             continue
                         # Install PKG directly if auto-install enabled
                         if self.auto_install_vita3k and self.vita3k_path and zrif:
-                            cmd = [self.vita3k_path, "--pkg", path, "--zrif", zrif]
+                            cmd = [self.vita3k_path, "--pkg", Path(path).as_posix(), "--zrif", zrif]
                             success, stdout, stderr = self._run_vita3k_install(cmd)
                             if success:
                                 installed = True
@@ -1252,7 +1255,7 @@ class DownloadManager(QThread):
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
-            #print(f"Running Vita3K command: {' '.join(cmd)}") #debug
+            print(f"Running Vita3K command: {' '.join(cmd)}") #debug
             # Increase timeout and capture output
             result = subprocess.run(
                 cmd,
@@ -2223,6 +2226,9 @@ class MainWindow(QMainWindow):
             # Optionally trigger a background fetch if cache is empty
             if not self.vita3k_compat.data:
                 QTimer.singleShot(1000, self.vita3k_compat.fetch)  # lazy load
+        vita3k_path = self.settings.get("vita3k_path", "")
+        if vita3k_path:
+            self.settings["vita3k_path"] = str(Path(vita3k_path).resolve())
         self.download_manager = DownloadManager(
             self.settings["download_path"],
             self.settings["use_es_folders"],
@@ -2230,7 +2236,7 @@ class MainWindow(QMainWindow):
             psv_helper=self.psv_helper,
             decrypt_psv_pkg=self.settings.get("decrypt_psv_pkg", True),
             auto_install_vita3k=self.settings.get("auto_install_vita3k", False),
-            vita3k_path=self.settings.get("vita3k_path", ""),
+            vita3k_path=vita3k_path,
             delete_after_vita3k_install=self.settings.get("delete_after_vita3k_install", False),
             extract_zips=self.settings.get("extract_zips", False)
         )
@@ -3596,7 +3602,10 @@ class MainWindow(QMainWindow):
         #print(f"MainWindow._on_settings_changed: new_settings['decrypt_psv_pkg'] = {new_settings.get('decrypt_psv_pkg')}")
         self.download_manager.decrypt_psv_pkg = new_settings.get("decrypt_psv_pkg", True)
         #print(f"After update: download_manager.decrypt_psv_pkg = {self.download_manager.decrypt_psv_pkg}")
-        self.download_manager.vita3k_path = new_settings.get("vita3k_path", "")
+        vita3k_path = new_settings.get("vita3k_path", "")
+        if vita3k_path:
+            vita3k_path = str(Path(vita3k_path).resolve())  # normalize and make absolute
+        self.download_manager.vita3k_path = vita3k_path
         self.download_manager.delete_after_vita3k_install = new_settings.get("delete_after_vita3k_install", False)
         self._save_config()
 

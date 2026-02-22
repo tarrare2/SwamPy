@@ -15,7 +15,7 @@ If you think of a good feature to add that isn't already written below (e.g. bit
 
 ### Instructions:
 1. Put the script/executable in a chosen folder then run it.
-   * If you're using the script, pip install the modules in requirements.txt (and if you want to use the local API put the crocAPI in a folder called 'mangrove', inside the mangrove folder put the roms.db file in a folder called 'db'.)
+   * If you're using the script, pip install the modules in requirements.txt (and if you want to use the local API: put the crocAPI in a folder called 'mangrove', inside the mangrove folder make a folder called 'db', place the roms.db file in db/) (if you want to use pkg2zip: make a folder called 'pkg2zip' and place the pkg2zip EXE/ELF in this folder)
 2. If you want to use the local server, open up the settings and click configure. Once you've chosen the host and port, start the server. You can also choose to start it automatically next time.
 3. Select platforms and regions, if any. Type keywords in the search bar, if any. Press enter or click the Search button.
 4. If there are results, the cover art will be shown if it's available, otherwise the Croc will be shown.
@@ -28,6 +28,7 @@ If you think of a good feature to add that isn't already written below (e.g. bit
    * Also remember to move the script/executable or a shortcut to it in ES-DE/ROMs/emulators for convenience.
 7. Extracts ROMs automatically but only if they only contain a single item (this is for emulators that are compatible with zips with a large number of tracks). Otherwise, they must be extracted manually.
    * If you're using Vita3K and ES-DE, make sure to set the path to Vita3K in the settings to automatically install PKGs and also make a .psvita file in ROMs/psvita so you can start the game from ES-DE.
+8. Select ROMs with either click+drag, ctrl+click, shift+click. Right click selected ROMs for the option to save to a Romset. You can load Romsets in the Romsets menu. Romsets are stored in your config folder in case you want to delete ROMs/Romsets.
 Optional: Turn off automatic .m3u folders and folder mapping if you prefer to have all the ROMs in the same top level folder
 
 The images are base64 strings. I know it's not a good decision but I find it's more convenient than having a folder for images.
@@ -52,6 +53,6 @@ The images are base64 strings. I know it's not a good decision but I find it's m
     4. ~~(Optional) Install .pkg+zRIF or .zip using Vita3K's CLI to automatically install a package~~
       * pkg+zRIF is chosen over zip otherwise Vita3K will run the game.
     5. ~~If ES-DE folders are being used, create .psvita files in place of the .pkg files for ES-DE to display and run.~~
-    6. Show/Filter by Vita3K's compatibility list (WIP)
+    6. ~~Show/Filter by Vita3K's compatibility list~~
 * ~~Option to run the API server locally~~
 

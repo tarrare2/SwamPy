@@ -10,7 +10,8 @@ It's not the worst thing ever, provided you don't look at the source code.
 
 If you think of a good feature to add that isn't already written below (e.g. bite the bullet and use chdman for converting the 1% of ROMs only available as bin/cue) or get annoyed by a bug or behaviour, feel free to open up an issue.
 
-<img width="1366" height="768" alt="Something to note: the second 'nes'/third label is the file format of the download link, not the platform." src="https://github.com/user-attachments/assets/3c317a3c-3f25-45cb-a694-06c11578daea" />
+<img width="650" height="370" alt="Screenshotz007" src="https://github.com/user-attachments/assets/153461d0-7693-4a8b-a10c-e7d864b96545" />
+
 
 
 ### Instructions:
@@ -56,3 +57,4 @@ The images are base64 strings. I know it's not a good decision but I find it's m
     6. ~~Show/Filter by Vita3K's compatibility list~~
 * ~~Option to run the API server locally~~
 
+<img width="1366" height="768" alt="vitacompat" src="https://github.com/user-attachments/assets/4f07168d-4c48-48a1-b744-ade02e6edd67" />

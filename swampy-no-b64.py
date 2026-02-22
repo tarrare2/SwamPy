@@ -898,7 +898,9 @@ class DownloadManager(QThread):
     progress = Signal(str, float)
     complete = Signal(str, str)
     error = Signal(str, str)
-    
+    cancelled = Signal(str)
+    queue_changed = Signal(int)
+    current_changed = Signal(str, bool)
     def __init__(self, base_path: str = "", use_es_folders: bool = True, create_m3u: bool = True, psv_helper=None, decrypt_psv_pkg=True, extract_zips=False, auto_install_vita3k=False, vita3k_path="", delete_after_vita3k_install=False):
         super().__init__()
         #print(f"DownloadManager.__init__: decrypt_psv_pkg = {decrypt_psv_pkg}")
@@ -915,42 +917,55 @@ class DownloadManager(QThread):
         self.current: Optional[Game] = None
         self._running = True
         self._active = False
-        self._cancel = False
+        self._cancel_event = threading.Event()
         self._paused = False
         self.queue_lock = threading.Lock()
 
     def pause(self):
-        """Pause by canceling current download."""
+        """Pause downloads: cancel current download, requeue it and pause the thread."""
         self._paused = True
         if self.current:
-            self.cancel_current()
-    
+            self._cancel_event.set()
+            with self.queue_lock:
+                self.queue.insert(0, self.current)
+            self.current = None
+            self.queue_changed.emit(len(self.queue) + (1 if self.current else 0))
+
     def resume(self):
         """Resume downloads."""
         self._paused = False
         if not self._active:
             self._active = True
             self.start()
+        self.queue_changed.emit(len(self.queue) + (1 if self.current else 0))
+
+    def cancel_current(self):
+        """Cancel the current download without requeueing."""
+        if self.current:
+            self._cancel_event.set()
+            self.current = None
+            self.queue_changed.emit(len(self.queue))
     
     def is_paused(self):
         return self._paused
     
     def move_to_top(self, game_id: str):
-        """Move a queued game to the position after current."""
         with self.queue_lock:
             for i, game in enumerate(self.queue):
                 if game.id == game_id:
                     game_to_move = self.queue.pop(i)
                     self.queue.insert(0, game_to_move)
+                    self.queue_changed.emit(len(self.queue) + (1 if self.current else 0))
                     return True
         return False
-    
+        
     def remove_from_queue(self, game_id: str):
-        """Remove a game from queue. Cancel if current."""
         with self.queue_lock:
             self.queue = [g for g in self.queue if g.id != game_id]
         if self.current and self.current.id == game_id:
             self.cancel_current()
+        else:
+            self.queue_changed.emit(len(self.queue) + (1 if self.current else 0))
             
     def _process_multi_disc_chd(self, game: Game, current_path: str) -> str:
         """Process multi-disc CHD file for .m3u creation."""
@@ -1034,6 +1049,7 @@ class DownloadManager(QThread):
         if not self._active:
             self._active = True
             self.start()
+        self.queue_changed.emit(len(self.queue) + (1 if self.current else 0))
     
     def get_path(self, game: Game) -> str:
         if self.use_es_folders:
@@ -1105,21 +1121,28 @@ class DownloadManager(QThread):
                     self._active = False
                     break
                 game = self.queue.pop(0)
-            self._cancel = False
+            self._cancel_event.clear()
             #game = self.queue.pop(0)
             self.current = game
+            self.current_changed.emit(game.id, True)
+            path = None
             try:
                 if not game.download_url:
                     raise ValueError("No download URL")
                 path = self.get_path(game)
                 game.download_path = path
                 with requests.Session() as session:# Check size and space
-                    head = session.head(game.download_url, timeout=10)
-                    if head.headers.get('content-length'):
-                        size = int(head.headers['content-length'])
-                        game.file_size = size
-                        if not self.check_space(size):
-                            raise OSError("Insufficient disk space")
+                    try:
+                        head = session.head(game.download_url, timeout=10)
+                        if head.headers.get('content-length'):
+                            size = int(head.headers['content-length'])
+                            game.file_size = size
+                            if not self.check_space(size):
+                                raise OSError("Insufficient disk space")
+                    except requests.exceptions.Timeout:
+                        raise TimeoutError("HEAD request timed out")
+                    if self._cancel_event.is_set():
+                        raise InterruptedError("Download cancelled")
                     response = session.get(game.download_url, stream=True, timeout=30)
                     response.raise_for_status()
                     total = int(response.headers.get('content-length', 0))
@@ -1128,7 +1151,7 @@ class DownloadManager(QThread):
                         os.remove(path)
                     with open(path, 'wb') as f:
                         for chunk in response.iter_content(chunk_size=8192):
-                            if self._cancel:
+                            if self._cancel_event.is_set():
                                 raise InterruptedError("Download cancelled")
                             if chunk:
                                 f.write(chunk)
@@ -1153,6 +1176,7 @@ class DownloadManager(QThread):
                             except:
                                 pass
                             self.current = None
+                            self.current_changed.emit(game.id, False)
                             continue
                         # Install PKG directly if auto-install enabled
                         if self.auto_install_vita3k and self.vita3k_path and zrif:
@@ -1175,6 +1199,7 @@ class DownloadManager(QThread):
                                 except:
                                     pass
                                 self.current = None
+                                self.current_changed.emit(game.id, False)
                                 continue
 
                         # Decrypt PKG to ZIP if enabled
@@ -1196,6 +1221,7 @@ class DownloadManager(QThread):
                                 except:
                                     pass
                                 self.current = None
+                                self.current_changed.emit(game.id, False)
                                 continue
                         # Keep PKG as is
                         else:
@@ -1234,14 +1260,35 @@ class DownloadManager(QThread):
                     print(f"DEBUG: Processing multi-disc CHD for .m3u: {game.title}")
                     path = self._process_multi_disc_chd(game, path)
                 self.complete.emit(game.id, path)
-            except Exception as e:
-                self.error.emit(game.id, str(e))
-                if 'path' in locals() and os.path.exists(path):
+                self.queue_changed.emit(len(self.queue))
+            except InterruptedError as e:
+                print(f"Download cancelled: {game.id}")
+                self.cancelled.emit(game.id)
+                if path and os.path.exists(path):
                     try:
                         os.remove(path)
                     except:
                         pass
+                self.current = None
+                self.current_changed.emit(game.id, False)
+                self.queue_changed.emit(len(self.queue))
+                continue
+            except Exception as e:
+                print(f"Download error for {game.id}: {e}")
+                self.error.emit(game.id, str(e))
+                if path and os.path.exists(path):
+                    try:
+                        os.remove(path)
+                        print(f"Deleted partial file: {path}")
+                    except Exception as del_err:
+                        print(f"Failed to delete {path}: {del_err}")
+                self.current = None
+                self.current_changed.emit(game.id, False)
+                self.queue_changed.emit(len(self.queue))
+                continue
+            self.queue_changed.emit(len(self.queue))
             self.current = None
+            self.current_changed.emit(game.id, False)
         self._active = False
         
     def _run_vita3k_install(self, cmd):
@@ -1842,6 +1889,9 @@ class DownloadQueueDialog(QDialog):
     def __init__(self, manager: DownloadManager):
         super().__init__()
         self.manager = manager
+        self.manager.cancelled.connect(self._on_cancelled)
+        self.manager.queue_changed.connect(self._on_queue_changed)
+        self.manager.current_changed.connect(self._on_current_changed)
         self._set_icon()
         self.setWindowTitle("Download Queue")
         self.setFixedSize(600, 400)
@@ -1888,6 +1938,13 @@ class DownloadQueueDialog(QDialog):
         layout.addLayout(buttons)
 
         self.update_ui_state()
+    def _on_cancelled(self, game_id):
+        self.refresh_queue_display()
+
+    def _on_queue_changed(self, count):# Update main window's queue button
+        self.refresh_queue_display()
+    def _on_current_changed(self, game_id, is_current):
+        self.refresh_queue_display()
 
     def refresh_queue_display(self):
         self.list_widget.clear()
@@ -1961,11 +2018,12 @@ class DownloadQueueDialog(QDialog):
     def toggle_pause(self):
         if self.manager.is_paused():
             self.manager.resume()
-            self.pause_resume_btn.setText("⏸️ Pause")
+            self.pause_resume_btn.setText("Pause")
         else:
             self.manager.pause()
-            self.pause_resume_btn.setText("▶️ Resume")
+            self.pause_resume_btn.setText("Resume")
         self.update_ui_state()
+        self.refresh_queue_display()
 
     def cancel_current(self):
         if self.manager.current:
@@ -1995,7 +2053,7 @@ class DownloadQueueDialog(QDialog):
             status = f"Downloads: {queue_count} queued"
         self.status_label.setText(status)
         self.pause_resume_btn.setEnabled(has_current or queue_count > 0)
-        self.pause_resume_btn.setText("⏸️ Pause" if not self.manager.is_paused() else "▶️ Resume")
+        self.pause_resume_btn.setText("Pause" if not self.manager.is_paused() else "Resume")
             
 class QueueItemWidget(QWidget):
     moved_up = Signal(str)
@@ -2536,25 +2594,6 @@ class MainWindow(QMainWindow):
             #for card in self.findChildren(GameCard):
                 #card.refresh_theme()
         super().changeEvent(event)
-    """
-    def _apply_theme(self, theme_name):
-        app = QApplication.instance()
-        if theme_name == "system":
-            app.setStyle(QStyleFactory.create(""))
-            app.setPalette(app.style().standardPalette())
-        else:
-            style = QStyleFactory.create(theme_name)
-            if style:
-                app.setStyle(style)
-
-        # Force all GameCard widgets to refresh their theme
-        for card in self.findChildren(GameCard):
-            card.refresh_theme()
-
-        # Optional: force a global repaint
-        for widget in QApplication.allWidgets():
-            widget.update()
-    """
     def on_system_palette_changed(self, palette):
         """Called when the system theme (light/dark) changes."""
         # Refresh all GameCard widgets so they adapt to the new palette
@@ -2564,20 +2603,16 @@ class MainWindow(QMainWindow):
         self.repaint()
     def _apply_theme(self, theme_name):
         app = QApplication.instance()
-
-        # 1. Determine and set the new style
+        # Determine and set the new style
         if theme_name == "system":
             new_style = None  # Qt will use platform default
         else:
             new_style = QStyleFactory.create(theme_name)
-
         if not new_style and theme_name != "system":
             return  # style not available
-
-        # 2. Set the style – this automatically updates the palette
+        # Set the style which automatically updates the palette
         app.setStyle(new_style)
-
-        # 3. Force all widgets to update to the new style/palette
+        # Force all widgets to update to the new palette
         for widget in app.allWidgets():
             if not widget:
                 continue
@@ -2588,16 +2623,13 @@ class MainWindow(QMainWindow):
             widget.style().polish(widget)
             widget.setStyleSheet(ss)
             widget.update()
-
-        # 4. Explicitly refresh GameCard widgets
+        # Explicitly refresh GameCard widgets
         for card in self.findChildren(GameCard):
             card.refresh_theme()
-
-        # 5. Send ApplicationPaletteChange event to the whole app
+        # Send ApplicationPaletteChange event to the whole app
         event = QEvent(QEvent.ApplicationPaletteChange)
         app.sendEvent(app, event)
-
-        # 6. Process any pending events and repaint
+        # Process any pending events and repaint
         app.processEvents()
         for w in app.topLevelWidgets():
             w.repaint()
@@ -2612,7 +2644,6 @@ class MainWindow(QMainWindow):
     def on_local_server_error(self, error):
         """Handle local server error"""
         self.status_bar.showMessage(f"Local server error: {error}", 5000)
-        
         reply = QMessageBox.critical(
             self,
             "Local Server Error",
@@ -2620,7 +2651,6 @@ class MainWindow(QMainWindow):
             "Would you like to switch to remote API?",
             QMessageBox.Yes | QMessageBox.No
         )
-        
         if reply == QMessageBox.Yes:
             self.settings["api_mode"] = "remote"
             self._save_config()
@@ -2675,7 +2705,6 @@ class MainWindow(QMainWindow):
         """Called when the server thread fails to start."""
         self.server_state.emit("error")
         self.status_bar.showMessage(f"Local server error: {error_msg}", 5000)
-        # Ask user if they want to fall back to remote API
         self._handle_local_api_failure(error_msg)
 
     def _on_server_stopped(self):
@@ -3004,6 +3033,7 @@ class MainWindow(QMainWindow):
         self.download_manager.progress.connect(self._on_download_progress)
         self.download_manager.complete.connect(self._on_download_complete)
         self.download_manager.error.connect(self._on_download_error)
+        self.download_manager.queue_changed.connect(self._on_queue_count_changed)
         self.grid_container.installEventFilter(self)# Events
         self.scroll.installEventFilter(self)
     
@@ -3635,9 +3665,10 @@ class MainWindow(QMainWindow):
         queue_size = len(self.download_manager.queue)
         self.queue_btn.setText(f"Queue ({queue_size})")
         self.status_bar.showMessage(f"Download error: {error[:50]}...", 5000)
-        # Show full error in a message box for Vita3K errors
         if "Vita3K installation failed" in error:
             QMessageBox.critical(self, "Vita3K Installation Error", error)
+    def _on_queue_count_changed(self, count):
+        self.queue_btn.setText(f"Queue ({count})")
     
     def closeEvent(self, event):
         self.image_loader.stop()
@@ -3649,14 +3680,13 @@ class MainWindow(QMainWindow):
             geometry_bytes = self.saveGeometry().toBase64().data()
             self.settings["window_geometry"] = geometry_bytes.decode('ascii')
         else:
-            # Don't save fullscreen geometry; keep the previously saved windowed geometry
+            # Don't save fullscreen geometry, keep the previously saved windowed geometry
             pass
         self._save_config()
         event.accept()
 
 def main():
     app = QApplication(sys.argv)
-    #app.setStyle("Fusion")#TODO: Add themes to the settings
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

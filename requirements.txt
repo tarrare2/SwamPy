@@ -3,3 +3,6 @@ pyside6==6.10.0
 pyside6_addons==6.10.0
 pyside6_essentials==6.10.0
 Requests==2.32.5
+flask
+unidecode
+Flask-Limiter[memcached]

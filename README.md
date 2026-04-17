@@ -35,6 +35,8 @@ Optional: Turn off automatic .m3u folders and folder mapping if you prefer to ha
 The images are base64 strings. I know it's not a good decision but I find it's more convenient than having a folder for images.
 
 ### Features to add upon request or spontaneous motivation: 
+* IMMEDIATE: Use replace myrient links with minerva-archive's torrents, add API endpoints for torrenting slugs and exposing torrented files for clients to download from the server.
+  * Possibly two separate versions, one with .torrent files prebundled (455MB) and one that just gets the needed .torrent from minerva-archive.org 
 * If using ES-DE: hopefully it's possible to autoscrape metadata for downloaded titles from screenscraper.fr into ES-DE/downloaded_media
 * Queue management beyond cancelling and clearing e.g. proper pause/resume/priority/parallel
     * I'm sure there's a way to download faster, not sure exactly how though.
